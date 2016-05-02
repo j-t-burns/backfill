@@ -1,0 +1,68 @@
+(* Requires Mathematica v10.0 or higher *)
+
+(* Unit Normal Vectors at Barycenter *)
+PolygonCenterVertex[verts_List] :=
+ {
+  Mean[ verts[[All, 1]] ],
+  Mean[ verts[[All, 2]] ],
+  Mean[ verts[[All, 3]] ]
+  }
+
+PolygonCenterNormalVertex[verts_List, len_] :=
+ 
+ PolygonCenterVertex[verts] +
+  len*Normalize[
+    Cross[ 
+     verts[[2]] - verts[[1]],
+     verts[[3]] - verts[[1]]
+     ]
+    ]
+
+PolygonCenterNormalVector[verts_List, len_] :=
+ Arrow[{
+   PolygonCenterVertex[verts],
+   PolygonCenterNormalVertex[verts, len]
+   }]
+   
+   
+(* Dual Polygon *)
+PolygonDual[faces_List] := Block[{edges},
+  edges =
+   Gather[
+    Reap[
+      Do[
+       Map[
+        Sow[{Sort[#], First[face]}] &,
+        Partition[Last[face], 2, 1, {1, 1}]
+        ]
+       , {face, Transpose[{Range[Length[faces]], faces}]}]
+      ][[2, 1]]
+    , First[#1] == First[#2] &];
+  
+  edges = 
+   Map[#[[1, 2]] <-> #[[2, 2]] &, Select[edges, Length[#] == 2 &]];
+  
+  FindFundamentalCycles[Graph[edges]][[All, All, 1]]
+]
+  
+  
+(* build inner shell with uniform offset  *)
+InnerOffset[GraphicsComplex[verts_, Polygon[polys_]], len_] :=
+  GraphicsComplex[
+    PolygonCenterNormalVertex[#[[1]], len] & /@ Normal[ 
+      GraphicsComplex[
+        verts,
+        Polygon[polys] ] 
+      ][[1]],
+    Polygon[ PolygonDual[polys] ] 
+  ]
+  
+  
+(* themis example *)
+themis = Import["THEMIS.stl", "GraphicsComplex"];
+  
+GraphicsRow[{
+  Graphics3D[{EdgeForm[], Red, themis}],
+  Graphics3D[{EdgeForm[], Blue, InnerOffset[themis, .05]}],
+  Graphics3D[{EdgeForm[], Blue, InnerOffset[themis, .05], Red, themis}]
+}, ImageSize -> 1000]
